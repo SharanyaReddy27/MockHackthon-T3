@@ -4,6 +4,8 @@ import HealthcareCentersPlaceholderPage from "./pages/healthcare/HealthcareCente
 import ReferralsPage from "./pages/referrals/ReferralsPage.jsx";
 import ReferralDetailPage from "./pages/referrals/ReferralDetailPage.jsx";
 import CreateReferralPage from "./pages/referrals/CreateReferralPage.jsx";
+import ConsultationPage from "./pages/ConsultationPage";
+import RiskAssessmentPage from "./pages/RiskAssessmentPage";
 import "./App.css";
 
 function App() {
@@ -17,7 +19,8 @@ function App() {
         <Route path="/referrals/new" element={<CreateReferralPage />} />
         <Route path="/referrals/:id" element={<ReferralDetailPage />} />
 
-        {/* Follow-up and Analytics routes are added in the next steps */}
+        <Route path="/consultation/:patientId" element={<ConsultationPage />} />
+        <Route path="/risk-assessment/:patientId" element={<RiskAssessmentPage />} />
 
         <Route path="*" element={<Navigate to="/healthcare-centers" replace />} />
       </Route>
