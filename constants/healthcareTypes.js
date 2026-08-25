@@ -1,0 +1,17 @@
+﻿/**
+ * Healthcare Center Types and Enums
+ */
+const HEALTHCARE_TYPES = {
+  PHC: 'PHC',
+  CLINIC: 'CLINIC',
+  HOSPITAL: 'HOSPITAL',
+  EMERGENCY_CENTER: 'EMERGENCY_CENTER',
+  CHC: 'CHC'
+};
+
+const ALLOWED_HEALTHCARE_TYPES = Object.values(HEALTHCARE_TYPES);
+
+module.exports = {
+  HEALTHCARE_TYPES,
+  ALLOWED_HEALTHCARE_TYPES
+};
