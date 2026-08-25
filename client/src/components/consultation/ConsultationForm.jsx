@@ -1,29 +1,58 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import {
+  createConsultation,
+  assessRisk,
+} from "../../services/consultationService";
+
 const commonSymptoms = [
-  "Fever",
-  "Cough",
-  "Headache",
-  "Fatigue",
-  "Vomiting",
-  "Diarrhea",
-  "Body Pain",
-  "Breathing Difficulty",
+  {
+    value: "fever",
+    label: "Fever",
+  },
+  {
+    value: "cough",
+    label: "Cough",
+  },
+  {
+    value: "headache",
+    label: "Headache",
+  },
+  {
+    value: "fatigue",
+    label: "Fatigue",
+  },
+  {
+    value: "vomiting",
+    label: "Vomiting",
+  },
+  {
+    value: "diarrhea",
+    label: "Diarrhea",
+  },
+  {
+    value: "body_pain",
+    label: "Body Pain",
+  },
+  {
+    value: "severe_breathing_difficulty",
+    label: "Severe Breathing Difficulty",
+  },
 ];
 
 function ConsultationForm({ patient }) {
   const navigate = useNavigate();
 
+  // Selected symptoms
   const [symptoms, setSymptoms] = useState([]);
 
+  // Consultation form data
   const [formData, setFormData] = useState({
     temperature: "",
     bloodPressure: "",
     heartRate: "",
     spo2: "",
-    respiratoryRate: "",
-    weight: "",
     observations: "",
     medication: "",
     notes: "",
@@ -31,61 +60,111 @@ function ConsultationForm({ patient }) {
     followUpDate: "",
   });
 
+  // UI states
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  const toggleSymptom = (symptom) => {
+  // --------------------------------------------------
+  // HANDLE SYMPTOM SELECTION
+  // --------------------------------------------------
+
+  const toggleSymptom = (symptomValue) => {
     setSymptoms((current) => {
-      if (current.includes(symptom)) {
-        return current.filter((item) => item !== symptom);
+      if (current.includes(symptomValue)) {
+        return current.filter(
+          (item) => item !== symptomValue
+        );
       }
 
-      return [...current, symptom];
+      return [...current, symptomValue];
     });
+
+    setErrors((current) => ({
+      ...current,
+      symptoms: "",
+    }));
   };
 
+  // --------------------------------------------------
+  // HANDLE INPUT CHANGES
+  // --------------------------------------------------
+
   const handleChange = (event) => {
-    const { name, value, type, checked } = event.target;
+    const {
+      name,
+      value,
+      type,
+      checked,
+    } = event.target;
 
     setFormData((current) => ({
       ...current,
-      [name]: type === "checkbox" ? checked : value,
+      [name]:
+        type === "checkbox"
+          ? checked
+          : value,
     }));
 
     setErrors((current) => ({
       ...current,
       [name]: "",
     }));
+
+    setSubmitError("");
   };
+
+  // --------------------------------------------------
+  // FORM VALIDATION
+  // --------------------------------------------------
 
   const validateForm = () => {
     const newErrors = {};
 
+    // Symptoms required
     if (symptoms.length === 0) {
-      newErrors.symptoms = "Please select at least one symptom.";
+      newErrors.symptoms =
+        "Please select at least one symptom.";
     }
 
-    if (
-      formData.temperature &&
-      Number.isNaN(Number(formData.temperature))
-    ) {
-      newErrors.temperature = "Enter a valid temperature.";
+    // Temperature validation
+    if (formData.temperature) {
+      const temperature = Number(
+        formData.temperature
+      );
+
+      if (Number.isNaN(temperature)) {
+        newErrors.temperature =
+          "Enter a valid temperature.";
+      }
     }
 
-    if (
-      formData.heartRate &&
-      Number.isNaN(Number(formData.heartRate))
-    ) {
-      newErrors.heartRate = "Enter a valid heart rate.";
+    // Heart rate validation
+    if (formData.heartRate) {
+      const heartRate = Number(
+        formData.heartRate
+      );
+
+      if (Number.isNaN(heartRate)) {
+        newErrors.heartRate =
+          "Enter a valid heart rate.";
+      }
     }
 
-    if (
-      formData.spo2 &&
-      Number.isNaN(Number(formData.spo2))
-    ) {
-      newErrors.spo2 = "Enter a valid SpO₂ value.";
+    // SpO2 validation
+    if (formData.spo2) {
+      const spo2 = Number(
+        formData.spo2
+      );
+
+      if (Number.isNaN(spo2)) {
+        newErrors.spo2 =
+          "Enter a valid SpO₂ value.";
+      }
     }
 
+    // Follow-up date validation
     if (
       formData.followUpRequired &&
       !formData.followUpDate
@@ -96,88 +175,278 @@ function ConsultationForm({ patient }) {
 
     setErrors(newErrors);
 
-    return Object.keys(newErrors).length === 0;
+    return (
+      Object.keys(newErrors).length === 0
+    );
   };
 
-  const handleSubmit = (event) => {
+  // --------------------------------------------------
+  // SUBMIT CONSULTATION
+  // --------------------------------------------------
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
+    // Validate form before API call
     if (!validateForm()) {
       return;
     }
 
+    setIsSubmitting(true);
+    setSubmitError("");
+    setSubmitted(false);
+
+    // ------------------------------------------------
+    // BUILD CONSULTATION REQUEST
+    // This exactly follows Backend 2 contract.
+    // ------------------------------------------------
+
     const consultationData = {
       patientId: patient.id,
-      symptoms,
+
+      symptoms: symptoms,
+
       vitals: {
-        temperature: formData.temperature,
-        bloodPressure: formData.bloodPressure,
-        heartRate: formData.heartRate,
-        spo2: formData.spo2,
-        respiratoryRate: formData.respiratoryRate,
-        weight: formData.weight,
+        temperature: formData.temperature
+          ? Number(formData.temperature)
+          : undefined,
+
+        bloodPressure:
+          formData.bloodPressure || undefined,
+
+        heartRate: formData.heartRate
+          ? Number(formData.heartRate)
+          : undefined,
+
+        spo2: formData.spo2
+          ? Number(formData.spo2)
+          : undefined,
       },
-      observations: formData.observations,
-      medication: formData.medication,
-      notes: formData.notes,
-      followUp: {
-        required: formData.followUpRequired,
-        date: formData.followUpDate,
-      },
+
+      observations:
+        formData.observations || "",
+
+      // Backend expects medication as an array
+      // User enters one medication per line.
+      medication: formData.medication
+        ? formData.medication
+            .split("\n")
+            .map((item) => item.trim())
+            .filter(Boolean)
+        : [],
+
+      notes: formData.notes || "",
+
+      // Backend expects followUpDate,
+      // not followUpRequired.
+      followUpDate:
+        formData.followUpRequired
+          ? formData.followUpDate
+          : null,
     };
 
     console.log(
-      "Consultation data:",
+      "Creating consultation:",
       consultationData
     );
 
-    setSubmitted(true);
+    try {
+      // ==============================================
+      // 1. CREATE CONSULTATION
+      // POST /api/consultations
+      // ==============================================
 
-    setTimeout(() => {
-      navigate(`/risk-assessment/${patient.id}`, {
-        state: {
-          patient,
-          consultation: consultationData,
-        },
-      });
-    }, 600);
+      const consultationResponse =
+        await createConsultation(
+          consultationData
+        );
+
+      console.log(
+        "Consultation API response:",
+        consultationResponse
+      );
+
+      // Backend returned an unsuccessful response
+      if (!consultationResponse?.success) {
+        throw new Error(
+          consultationResponse?.message ||
+            "Unable to create consultation."
+        );
+      }
+
+      const consultation =
+        consultationResponse.consultation;
+
+      // Safety check
+      if (!consultation) {
+        throw new Error(
+          "Consultation was created but no consultation data was returned."
+        );
+      }
+
+      console.log(
+        "Created consultation:",
+        consultation
+      );
+
+      // ==============================================
+      // 2. BUILD RISK ASSESSMENT REQUEST
+      // ==============================================
+
+      const riskData = {
+        temperature:
+          consultation.vitals?.temperature ??
+          null,
+
+        heartRate:
+          consultation.vitals?.heartRate ??
+          null,
+
+        spo2:
+          consultation.vitals?.spo2 ??
+          null,
+
+        symptoms:
+          consultation.symptoms || [],
+      };
+
+      console.log(
+        "Risk assessment request:",
+        riskData
+      );
+
+      // ==============================================
+      // 3. RISK ASSESSMENT
+      // POST /api/risk-assessment
+      // ==============================================
+
+      const riskResponse =
+        await assessRisk(riskData);
+
+      console.log(
+        "Risk assessment response:",
+        riskResponse
+      );
+
+      // Backend returned an unsuccessful response
+      if (!riskResponse?.success) {
+        throw new Error(
+          riskResponse?.message ||
+            "Unable to assess the patient's risk."
+        );
+      }
+
+      const assessment =
+        riskResponse.assessment;
+
+      // Safety check
+      if (!assessment) {
+        throw new Error(
+          "Risk assessment completed but no assessment result was returned."
+        );
+      }
+
+      // ==============================================
+      // 4. SUCCESS
+      // ==============================================
+
+      setSubmitted(true);
+
+      // Navigate to Risk Assessment page
+      navigate(
+        `/risk-assessment/${consultation.id}`,
+        {
+          state: {
+            patient,
+            consultation,
+            assessment,
+          },
+        }
+      );
+    } catch (error) {
+      console.error(
+        "Consultation submission failed:",
+        error
+      );
+
+      // Backend error format:
+      //
+      // {
+      //   "success": false,
+      //   "message": "Consultation not found"
+      // }
+
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Unable to save consultation. Please try again.";
+
+      setSubmitError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  // --------------------------------------------------
+  // RENDER
+  // --------------------------------------------------
 
   return (
     <form
       className="consultation-form"
       onSubmit={handleSubmit}
     >
+      {/* ============================================
+          STEP 01 — SYMPTOMS
+          ============================================ */}
 
-      {/* Symptoms */}
       <section className="form-card">
         <div className="form-card-header">
-          <div className="form-section-icon">+</div>
+          <div className="form-section-icon">
+            +
+          </div>
 
           <div>
-            <p className="section-eyebrow">STEP 01</p>
+            <p className="section-eyebrow">
+              STEP 01
+            </p>
+
             <h2>Symptoms</h2>
+
             <p>
-              Select the symptoms reported by the patient.
+              Select the symptoms reported by
+              the patient.
             </p>
           </div>
         </div>
 
         <div className="symptom-grid">
           {commonSymptoms.map((symptom) => {
-            const selected = symptoms.includes(symptom);
+            const selected =
+              symptoms.includes(
+                symptom.value
+              );
 
             return (
               <button
                 type="button"
-                key={symptom}
+                key={symptom.value}
                 className={`symptom-chip ${
-                  selected ? "selected" : ""
+                  selected
+                    ? "selected"
+                    : ""
                 }`}
-                onClick={() => toggleSymptom(symptom)}
+                onClick={() =>
+                  toggleSymptom(
+                    symptom.value
+                  )
+                }
               >
-                {selected && <span>✓</span>}
-                {symptom}
+                {selected && (
+                  <span>✓</span>
+                )}
+
+                {symptom.label}
               </button>
             );
           })}
@@ -193,33 +462,56 @@ function ConsultationForm({ patient }) {
           <div className="selected-symptoms">
             <span>Selected:</span>
 
-            {symptoms.map((symptom) => (
-              <span
-                className="selected-symptom"
-                key={symptom}
-              >
-                {symptom}
-              </span>
-            ))}
+            {symptoms.map(
+              (symptomValue) => {
+                const symptom =
+                  commonSymptoms.find(
+                    (item) =>
+                      item.value ===
+                      symptomValue
+                  );
+
+                return (
+                  <span
+                    className="selected-symptom"
+                    key={symptomValue}
+                  >
+                    {symptom?.label ||
+                      symptomValue}
+                  </span>
+                );
+              }
+            )}
           </div>
         )}
       </section>
 
-      {/* Vitals */}
+      {/* ============================================
+          STEP 02 — VITALS
+          ============================================ */}
+
       <section className="form-card">
         <div className="form-card-header">
-          <div className="form-section-icon">♥</div>
+          <div className="form-section-icon">
+            ♥
+          </div>
 
           <div>
-            <p className="section-eyebrow">STEP 02</p>
+            <p className="section-eyebrow">
+              STEP 02
+            </p>
+
             <h2>Vitals</h2>
+
             <p>
-              Record the patient's current vital measurements.
+              Record the patient's current
+              vital measurements.
             </p>
           </div>
         </div>
 
         <div className="field-grid">
+          {/* Temperature */}
 
           <div className="form-field">
             <label htmlFor="temperature">
@@ -233,9 +525,14 @@ function ConsultationForm({ patient }) {
                 type="number"
                 step="0.1"
                 placeholder="38.5"
-                value={formData.temperature}
-                onChange={handleChange}
+                value={
+                  formData.temperature
+                }
+                onChange={
+                  handleChange
+                }
               />
+
               <span>°C</span>
             </div>
 
@@ -245,6 +542,8 @@ function ConsultationForm({ patient }) {
               </p>
             )}
           </div>
+
+          {/* Blood Pressure */}
 
           <div className="form-field">
             <label htmlFor="bloodPressure">
@@ -257,12 +556,19 @@ function ConsultationForm({ patient }) {
                 name="bloodPressure"
                 type="text"
                 placeholder="120/80"
-                value={formData.bloodPressure}
-                onChange={handleChange}
+                value={
+                  formData.bloodPressure
+                }
+                onChange={
+                  handleChange
+                }
               />
+
               <span>mmHg</span>
             </div>
           </div>
+
+          {/* Heart Rate */}
 
           <div className="form-field">
             <label htmlFor="heartRate">
@@ -275,9 +581,14 @@ function ConsultationForm({ patient }) {
                 name="heartRate"
                 type="number"
                 placeholder="80"
-                value={formData.heartRate}
-                onChange={handleChange}
+                value={
+                  formData.heartRate
+                }
+                onChange={
+                  handleChange
+                }
               />
+
               <span>bpm</span>
             </div>
 
@@ -287,6 +598,8 @@ function ConsultationForm({ patient }) {
               </p>
             )}
           </div>
+
+          {/* SpO2 */}
 
           <div className="form-field">
             <label htmlFor="spo2">
@@ -299,9 +612,14 @@ function ConsultationForm({ patient }) {
                 name="spo2"
                 type="number"
                 placeholder="98"
+                min="0"
+                max="100"
                 value={formData.spo2}
-                onChange={handleChange}
+                onChange={
+                  handleChange
+                }
               />
+
               <span>%</span>
             </div>
 
@@ -311,57 +629,29 @@ function ConsultationForm({ patient }) {
               </p>
             )}
           </div>
-
-          <div className="form-field">
-            <label htmlFor="respiratoryRate">
-              Respiratory Rate
-            </label>
-
-            <div className="input-with-unit">
-              <input
-                id="respiratoryRate"
-                name="respiratoryRate"
-                type="number"
-                placeholder="18"
-                value={formData.respiratoryRate}
-                onChange={handleChange}
-              />
-              <span>/min</span>
-            </div>
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="weight">
-              Weight
-            </label>
-
-            <div className="input-with-unit">
-              <input
-                id="weight"
-                name="weight"
-                type="number"
-                step="0.1"
-                placeholder="65"
-                value={formData.weight}
-                onChange={handleChange}
-              />
-              <span>kg</span>
-            </div>
-          </div>
-
         </div>
       </section>
 
-      {/* Observations */}
+      {/* ============================================
+          STEP 03 — OBSERVATIONS
+          ============================================ */}
+
       <section className="form-card">
         <div className="form-card-header">
-          <div className="form-section-icon">i</div>
+          <div className="form-section-icon">
+            i
+          </div>
 
           <div>
-            <p className="section-eyebrow">STEP 03</p>
+            <p className="section-eyebrow">
+              STEP 03
+            </p>
+
             <h2>Observations</h2>
+
             <p>
-              Record relevant observations from the consultation.
+              Record relevant observations
+              from the consultation.
             </p>
           </div>
         </div>
@@ -376,22 +666,33 @@ function ConsultationForm({ patient }) {
             name="observations"
             rows="5"
             placeholder="Enter observations..."
-            value={formData.observations}
+            value={
+              formData.observations
+            }
             onChange={handleChange}
           />
         </div>
       </section>
 
-      {/* Medication */}
+      {/* ============================================
+          STEP 04 — MEDICATION
+          ============================================ */}
+
       <section className="form-card">
         <div className="form-card-header">
-          <div className="form-section-icon">Rx</div>
+          <div className="form-section-icon">
+            Rx
+          </div>
 
           <div>
-            <p className="section-eyebrow">STEP 04</p>
+            <p className="section-eyebrow">
+              STEP 04
+            </p>
+
             <h2>Medication</h2>
+
             <p>
-              Record medication guidance or prescribed medication.
+              Enter one medication per line.
             </p>
           </div>
         </div>
@@ -405,23 +706,48 @@ function ConsultationForm({ patient }) {
             id="medication"
             name="medication"
             rows="4"
-            placeholder="Medicine, dosage, frequency and duration..."
-            value={formData.medication}
+            placeholder={`Example:
+Paracetamol 500mg twice daily
+ORS after loose stools`}
+            value={
+              formData.medication
+            }
             onChange={handleChange}
           />
+
+          <small
+            style={{
+              color:
+                "var(--text-secondary)",
+              fontSize: "12px",
+            }}
+          >
+            Enter each medication on a
+            separate line.
+          </small>
         </div>
       </section>
 
-      {/* Notes */}
+      {/* ============================================
+          STEP 05 — NOTES
+          ============================================ */}
+
       <section className="form-card">
         <div className="form-card-header">
-          <div className="form-section-icon">N</div>
+          <div className="form-section-icon">
+            N
+          </div>
 
           <div>
-            <p className="section-eyebrow">STEP 05</p>
+            <p className="section-eyebrow">
+              STEP 05
+            </p>
+
             <h2>Notes</h2>
+
             <p>
-              Add any additional consultation notes.
+              Add any additional consultation
+              notes.
             </p>
           </div>
         </div>
@@ -442,16 +768,26 @@ function ConsultationForm({ patient }) {
         </div>
       </section>
 
-      {/* Follow-up */}
+      {/* ============================================
+          STEP 06 — FOLLOW-UP
+          ============================================ */}
+
       <section className="form-card">
         <div className="form-card-header">
-          <div className="form-section-icon">↻</div>
+          <div className="form-section-icon">
+            ↻
+          </div>
 
           <div>
-            <p className="section-eyebrow">STEP 06</p>
+            <p className="section-eyebrow">
+              STEP 06
+            </p>
+
             <h2>Follow-up</h2>
+
             <p>
-              Schedule a follow-up when required.
+              Schedule a follow-up when
+              required.
             </p>
           </div>
         </div>
@@ -460,7 +796,9 @@ function ConsultationForm({ patient }) {
           <input
             type="checkbox"
             name="followUpRequired"
-            checked={formData.followUpRequired}
+            checked={
+              formData.followUpRequired
+            }
             onChange={handleChange}
           />
 
@@ -480,13 +818,17 @@ function ConsultationForm({ patient }) {
                 id="followUpDate"
                 name="followUpDate"
                 type="date"
-                value={formData.followUpDate}
+                value={
+                  formData.followUpDate
+                }
                 onChange={handleChange}
               />
 
               {errors.followUpDate && (
                 <p className="field-error">
-                  {errors.followUpDate}
+                  {
+                    errors.followUpDate
+                  }
                 </p>
               )}
             </div>
@@ -494,31 +836,47 @@ function ConsultationForm({ patient }) {
         )}
       </section>
 
-      {/* Submit */}
+      {/* ============================================
+          SUBMIT SECTION
+          ============================================ */}
+
       <div className="form-submit-section">
+
+        {/* Backend/API error */}
+
+        {submitError && (
+          <div className="error-message">
+            {submitError}
+          </div>
+        )}
+
+        {/* Success message */}
 
         {submitted && (
           <div className="success-message">
-            Consultation recorded successfully. Preparing assessment...
+            Consultation recorded
+            successfully.
           </div>
         )}
+
+        {/* Submit button */}
 
         <button
           type="submit"
           className="primary-button"
-          disabled={submitted}
+          disabled={isSubmitting}
         >
-          {submitted
-            ? "Processing..."
+          {isSubmitting
+            ? "Saving consultation..."
             : "Submit Consultation"}
         </button>
 
         <p className="submit-note">
-          The consultation will be assessed using the configured
-          clinical decision-support rules.
+          The consultation will be assessed
+          using the configured clinical
+          decision-support rules.
         </p>
       </div>
-
     </form>
   );
 }
