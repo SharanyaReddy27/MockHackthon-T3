@@ -1,0 +1,11 @@
+const express = require("express");
+
+const {
+    performRiskAssessment
+} = require("../controllers/riskAssessmentController");
+
+const router = express.Router();
+
+router.post("/", performRiskAssessment);
+
+module.exports = router;
