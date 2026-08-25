@@ -2,7 +2,10 @@ import { NavLink, Outlet } from "react-router-dom";
 import "./AppLayout.css";
 
 const NAV_ITEMS = [
-  { to: "/healthcare-centers", label: "Healthcare Centers", icon: "🏥" },
+  { to: "/health-worker/dashboard", label: "Dashboard", icon: "🏠" },
+  { to: "/patients", label: "Patients", icon: "👥" },
+  { to: "/consultation", label: "Consultation", icon: "🩺" },
+  { to: "/healthcare-centers", label: "Centers", icon: "🏥" },
   { to: "/referrals", label: "Referrals", icon: "📋" },
   { to: "/follow-ups", label: "Follow-ups", icon: "⏰" },
   { to: "/analytics", label: "Analytics", icon: "📊" },
